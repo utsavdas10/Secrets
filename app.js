@@ -1,7 +1,10 @@
+require('dotenv').config();
 const express = require('express');
 const bodyParser = require('body-parser');
 const ejs = require('ejs');
 const mongoose = require('mongoose');
+const encrypt = require('mongoose-encryption');
+
 
 const app = express();
 
@@ -30,6 +33,10 @@ const userSchema = new mongoose.Schema(
         password: {type:String, required: true}
     }
 );
+
+
+//mongoose-encryption plugin for encrypting password//
+userSchema.plugin(encrypt, {secret: process.env.SECRET, encryptedFields:['password']});
 
 
 //Creating User Model
@@ -83,7 +90,6 @@ app.post('/register', (req, res)=>{
         
             //saving the newUser to database
             newUser.save().then(function(result){
-                console.log(result);
                 if(result != null){
                   console.log(`User with username: ${username}, Registered`);
                   res.render('secrets');
