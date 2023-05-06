@@ -58,23 +58,68 @@ app.get('/register', function(req,res){
 
 // ----------------------------POST REQUESTS-----------------------------//
 
+
+// Registering Users
 app.post('/register', (req, res)=>{
-    const newUser = new User(
-        {
-            email: req.body.username,
-            password: req.body.password
-        }
-    );
-    console.log(newUser);
-    //saving the newUser to database
-    newUser.save().then(function(result){
-        console.log(result);
-        if(result != null){
-          console.log("User Registered");
-          res.render('secrets');
+
+    const username = req.body.username;
+    const password = req.body.password;
+
+    User.findOne({email: username}).then((foundUser)=>{
+
+        // Checking if User already exists
+        if(foundUser != null){
+            console.log(`Username: ${username}, already exists`);
+            res.redirect('/login');
         }
         else{
-          console.log("Cannot Register User");
+            // Creating new User
+            const newUser = new User(
+                {
+                    email: username,
+                    password: password
+                }
+            );
+        
+            //saving the newUser to database
+            newUser.save().then(function(result){
+                console.log(result);
+                if(result != null){
+                  console.log(`User with username: ${username}, Registered`);
+                  res.render('secrets');
+                }
+                else{
+                  console.log("Cannot Register User");
+                }
+            });
+        }
+    });
+});
+
+
+// Logging In Users
+app.post('/login', (req, res)=>{
+
+    // Reading Data submitted by the User
+    const username = req.body.username;
+    const password = req.body.password;
+
+    //Checking if User exists:
+    User.findOne({email: username}).then((foundUser)=>{
+        if(foundUser == null){
+            console.log(`Username: ${username}, does not exists`);
+            res.redirect('/register');
+        }
+        else{
+            //Checking Password
+            if(password === foundUser.password){
+                console.log(`Logged In as ${username}`);
+                res.render('secrets')
+            }
+            else{
+                console.log('Wrong Password');
+                res.redirect('/login');
+            }
         }
     });
 });
