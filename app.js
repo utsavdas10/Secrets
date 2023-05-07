@@ -4,7 +4,10 @@ const bodyParser = require('body-parser');
 const ejs = require('ejs');
 const mongoose = require('mongoose');
 // const encrypt = require('mongoose-encryption');
-const md5 = require('md5');
+// const md5 = require('md5');
+const bcrypt = require('bcrypt');
+const saltRounds = 10;
+
 
 
 const app = express();
@@ -67,11 +70,14 @@ app.get('/register', function(req,res){
 // ----------------------------POST REQUESTS-----------------------------//
 
 
-// Registering Users
+
+// -----Registering Users ----- //
+
 app.post('/register', (req, res)=>{
 
     const username = req.body.username;
-    const password = md5(req.body.password);
+    const plaintextPassword = req.body.password;
+
 
     User.findOne({email: username}).then((foundUser)=>{
 
@@ -81,22 +87,31 @@ app.post('/register', (req, res)=>{
             res.redirect('/login');
         }
         else{
-            // Creating new User
-            const newUser = new User(
-                {
-                    email: username,
-                    password: password
-                }
-            );
-        
-            //saving the newUser to database
-            newUser.save().then(function(result){
-                if(result != null){
-                  console.log(`User with username: ${username}, Registered`);
-                  res.render('secrets');
+            // Hashing the password
+            bcrypt.hash(plaintextPassword, saltRounds, function(err, hash) {
+                if(!err){
+                    // Creating new User----Store hash in DB.
+                    const newUser = new User(
+                        {
+                            email: username,
+                            password: hash
+                        }
+                    );
+                
+                    //saving the newUser to database
+                    newUser.save().then(function(result){
+                        if(result != null){
+                        console.log(`User with username: ${username}, Registered`);
+                        res.render('secrets');
+                        }
+                        else{
+                        console.log("Cannot Register User");
+                        }
+                    });
                 }
                 else{
-                  console.log("Cannot Register User");
+                    console.log("Error Hashing Password using bcrypt");
+                    res.redirect('/register');
                 }
             });
         }
@@ -104,29 +119,40 @@ app.post('/register', (req, res)=>{
 });
 
 
-// Logging In Users
+
+// ----- Logging In Users -----//
+
 app.post('/login', (req, res)=>{
 
     // Reading Data submitted by the User
     const username = req.body.username;
-    const password = md5(req.body.password);
+    const plaintextPassword = req.body.password;
 
     //Checking if User exists:
     User.findOne({email: username}).then((foundUser)=>{
-        if(foundUser == null){
+        if(foundUser == null){ // When user doesn't exist
             console.log(`Username: ${username}, does not exists`);
             res.redirect('/register');
         }
-        else{
+        else{ // When user exists
             //Checking Password
-            if(password === foundUser.password){
-                console.log(`Logged In as ${username}`);
-                res.render('secrets')
-            }
-            else{
-                console.log('Wrong Password');
-                res.redirect('/login');
-            }
+            const hash = foundUser.password;
+            bcrypt.compare(plaintextPassword, hash, function(err, result) {
+                if(!err){
+                    if(result === true){ //hash == plaintextPassword
+                        console.log(`Logged In as ${username}`);
+                        res.render('secrets');
+                    }
+                    else{
+                        console.log('Wrong Password');
+                        res.redirect('/login');
+                    }
+                }
+                else{
+                    console.log("Failed to comapre Hashed password with plaintext password");
+                    res.redirect('/login')
+                }
+            });
         }
     });
 });
@@ -148,7 +174,7 @@ app.post('/login', (req, res)=>{
 
 
 //------------------------------------SETTING PORT---------------------------------------//
-const port = process.env.PORT || 5000
+const port = process.env.PORT || 3000
 
 app.listen(port, function(){
     console.log(`Server started on port ${port}`);
